@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Nodes Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+	<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+	<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+			/* Set the background of the SVG to a dark color */
+			#visualization {
+				background-color: #061E47; /* Use a very dark background */
+				width: 100%;
+				height: 100vh; /* Use full viewport height */
+				border: none;
+			}
+
+			/* Style for the nodes (circles) */
+			circle {
+				fill: #f00; /* Start with a bright red fill */
+				stroke: #f00; /* Same color stroke to amplify the glow effect */
+				stroke-width: 1; /* Thin stroke width */
+				opacity: 0.9; /* Slightly transparent */
+			}
+
+			/* Optional: Add a soft outer glow to the nodes using a filter */
+			/*  adjust 'stdDeviation' for a larger or smaller glow effect */
+			<defs>
+				<filter id="soft-glow">
+					<feGaussianBlur stdDeviation="1.5" result="blur"/>
+					<feMerge>
+						<feMergeNode in="blur"/>
+						<feMergeNode in="SourceGraphic"/>
+					</feMerge>
+				</filter>
+			</defs>
+
+
+    </style>
+</head>
+<body>
+<svg id="visualization" width="800" height="600">
+		<defs>
+			<filter id="soft-glow">
+				<feGaussianBlur stdDeviation="1.5" result="blur"/>
+				<feMerge>
+					<feMergeNode in="blur"/>
+					<feMergeNode in="SourceGraphic"/>
+				</feMerge>
+			</filter>
+		</defs>
+</svg>
+<script>
+  // Path to your JSON file
+  const dataPath = 'node_data_BS_WT.json'; // Update this path if your file is located elsewhere
+
+  // Load the JSON data
+  d3.json(dataPath).then(data => {
+    console.log("Data loaded:", data); // Log the data to the console to verify it's loaded
+
+    // Select the SVG container
+    const svg = d3.select('#visualization');
+
+    // Define scales for your x, y, and z coordinates to fit them within the SVG dimensions
+    const xScale = d3.scaleLinear()
+        .domain([d3.min(data, d => d.x), d3.max(data, d => d.x)])
+        .range([0, svg.attr('width')]);
+
+    const yScale = d3.scaleLinear()
+        .domain([d3.min(data, d => d.y), d3.max(data, d => d.y)])
+        .range([svg.attr('height'), 0]); // SVG y coordinates are flipped
+
+    const zScale = d3.scaleLinear()
+        .domain([d3.min(data, d => d.z), d3.max(data, d => d.z)])
+        .range([5, 15]); // Adjust for size
+
+    // Add circles for each node
+// Add circles for each node
+svg.selectAll('circle')
+    .data(data)
+    .enter().append('circle')
+    .attr('cx', d => xScale(d.x))
+    .attr('cy', d => yScale(d.y))
+    .attr('r', d => zScale(d.z))
+    .style('fill', '#f00')
+    .style('stroke', '#f00')
+    .style('stroke-width', '1')
+    .style('opacity', '0.9')
+    .style('filter', 'url(#soft-glow)'); // Apply the filter for a glow effect
+}).catch(error => {
+    console.error("Error loading the JSON data:", error);
+  });
+
+</script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Nodes Visualization</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<div id="nodeInfo" style="position: absolute; color: white; display: none; background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px;"></div>
+
+<script>
+	var lastMousePosition = { x: 0, y: 0 };
+
+    // Scene setup
+	// Initialize scene
+	var scene = new THREE.Scene();
+	scene.background = new THREE.Color('#061E47'); // Set the scene background color
+
+
+    // Camera setup
+    var camera = new THREE.PerspectiveCamera(
+        75, // Field of view
+        window.innerWidth / window.innerHeight, // Aspect ratio
+        0.1, // Near clipping plane
+        1000 // Far clipping plane
+    );
+
+    // Renderer setup
+    var renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+	
+	//For Mouse Interaction to SHow Node Names
+	var raycaster = new THREE.Raycaster();
+	var mouse = new THREE.Vector2();
+
+	function onMouseMove(event) {
+    // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Update the global mouse position
+    lastMousePosition.x = event.clientX;
+    lastMousePosition.y = event.clientY;
+    }
+
+	window.addEventListener('mousemove', onMouseMove, false);
+	//For Mouse Interaction to SHow Node Names
+
+    // OrbitControls setup for camera interaction
+    var controls = new THREE.OrbitControls(camera, renderer.domElement);
+		// ... after initializing OrbitControls
+		controls.enableDamping = true;
+		controls.dampingFactor = 0.25;
+		controls.screenSpacePanning = true; // This allows panning without affecting the vertical angle
+
+		// Remove constraints on angles
+		controls.minPolarAngle = 0; // radians (0 = top of the sphere)
+		controls.maxPolarAngle = Math.PI; // radians (Math.PI = bottom of the sphere)
+		controls.minAzimuthAngle = -Infinity; // radians
+		controls.maxAzimuthAngle = Infinity; // radians
+
+
+    // Move the camera from the center
+    camera.position.z = 5;
+
+    // Lighting setup
+    var ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
+    scene.add(ambientLight);
+
+    // Add a directional light for better visibility
+    var directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directionalLight.position.set(0, 1, 0);
+    scene.add(directionalLight);
+
+    // Animation loop
+		function animate() {
+			requestAnimationFrame(animate);
+
+			// Update the picking ray with the camera and mouse position
+			raycaster.setFromCamera(mouse, camera);
+
+			// Calculate objects intersecting the picking ray
+			var intersects = raycaster.intersectObjects(scene.children, true);
+
+			// Hide the nodeInfo by default for each frame
+			document.getElementById('nodeInfo').style.display = 'none';
+
+			for (var i = 0; i < intersects.length; i++) {
+				// Since intersects are sorted by distance, break after the first to only show the closest
+				if(intersects[i].object.userData.id) { // Ensure object has an ID
+					// Show the overlay with node ID
+					var nodeInfo = document.getElementById('nodeInfo');
+					nodeInfo.style.display = 'block';
+					nodeInfo.innerHTML = intersects[i].object.userData.id;
+					nodeInfo.style.left = lastMousePosition.x + 'px';
+					nodeInfo.style.top = lastMousePosition.y + 'px';
+					break; // Exit after showing the first (closest) intersecting node
+				}
+			}
+
+			controls.update();
+			renderer.render(scene, camera);
+		}
+
+
+
+    animate();
+    
+    // Handling window resize
+    window.addEventListener('resize', onWindowResize, false);
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+	// Fetch your JSON data
+	fetch('node_data_BS_WT.json')
+	  .then(response => response.json())
+	  .then(data => {
+		// Create the material for the nodes
+		var nodeMaterial = new THREE.MeshStandardMaterial({
+		  color: 0xff0000, // Base color for the nodes
+		  emissive: 0xff0000, // Emissive color to create a glow effect
+		  emissiveIntensity: 0.2 // Lowered intensity to distinguish the nodes
+		});
+
+		// Process the data
+		data.forEach(node => {
+		  // Scale the node positions
+		  var x = node.x / 100;
+		  var y = node.y / 100;
+		  var z = node.z / 100;
+
+		  // Create a sphere geometry for each node
+		  var geometry = new THREE.SphereGeometry(0.05, 32, 32); // Adjust size as needed
+
+		  // Create a sphere mesh with the geometry and the material
+		  var sphere = new THREE.Mesh(geometry, nodeMaterial);
+			sphere.position.set(x, y, z);
+			sphere.userData = { id: node.id }; // Assuming each node has an 'id' property
+			scene.add(sphere);
+
+		  // Set the position of the sphere
+		  sphere.position.set(x, y, z);
+
+		  // Add the sphere to the scene
+		  scene.add(sphere);
+		});
+
+		// Adjust camera position and controls if needed
+		camera.position.set(0, 0, 5); // Set a reasonable starting position for the camera
+		controls.update();
+
+	  })
+	  .catch(error => console.error('Error loading JSON:', error));
+
+
+
+</script>
+</body>
+</html>
