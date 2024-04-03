@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Nodes Visualization</title>
+	<style>
+		body { 
+			margin: 0; 
+		}
+		canvas { 
+			display: block; 
+		}
+		#source-node-checkboxes label {
+			margin-right: 10px;
+		}
+		#source-node-checkboxes input[type='checkbox'] {
+			margin-right: 5px;
+		}
+	</style>
+
+</head>
+<body>
+<select id="dataset-selector">
+  <option value="" selected disabled>Select a Node Dataset</option>
+  <option value="node_data_AG 401.json">Agrobacterium tumefaciens 401</option>
+  <option value="node_data_AG 443 ATWX283.json">Agrobacterium tumefaciens 443 ATWX283</option>
+  <option value="node_data_AG 443.json">Agrobacterium tumefaciens 443</option>
+  <option value="node_data_AG 444.json">Agrobacterium tumefaciens 444</option>
+  <option value="node_data_AG 445.json">Agrobacterium tumefaciens 445</option>
+  <option value="node_data_AG 446.json">Agrobacterium tumefaciens 446</option>
+  <option value="node_data_BS_WT.json">Bacillus subtilis Wild Type</option>
+  <option value="node_data_BS_301.json">Bacillus subtilis 301</option>
+  <option value="node_data_BS_302.json">Bacillus subtilis 302</option>
+  <option value="node_data_BS_310.json">Bacillus subtilis 310</option>
+  <option value="node_data_BS_311.json">Bacillus subtilis 311</option>
+  <option value="node_data_BS_312.json">Bacillus subtilis 312</option>
+  <option value="node_data_BS_313.json">Bacillus subtilis 313</option>
+  <option value="node_data_BS_314.json">Bacillus subtilis 314</option>
+  <option value="node_data_BS_315.json">Bacillus subtilis 315</option>
+  <option value="node_data_BS_314.json">Bacillus subtilis 314</option>
+  <option value="node_data_BS_315.json">Bacillus subtilis 315</option>
+  <option value="node_data_BS SMCTS_42C40M.json">Bacillus subtilis SMCTS_42C40M</option>
+  <option value="node_data_BS SMCTS_42C120M.json">Bacillus subtilis SMCTS_42C120M</option>
+  <option value="node_data_Yeast WT.json">Yeast Wild Type</option>
+  <option value="node_data_Yeast Rad21.json">Yeast Rad21</option>
+  <option value="node_data_Yeast SPK567.json">Yeast SPK567</option>
+  <option value="node_data_Yeast SPTA333.json">Yeast SPTA333</option>
+  <!-- Add more datasets as options here -->
+</select>
+
+<!-- Place this in the body of your HTML where you want the dropdown to appear -->
+<select id="edge-dataset-selector">
+  <option value="" selected disabled>Select an Edge Dataset</option>
+  <option value="top_5_percent_edges_all_source.json">top_5_percent_edges_all_source</option>
+</select>
+
+
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<div id="nodeInfo" style="position: absolute; color: white; display: none; background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px;"></div>
+<div id="source-node-checkboxes"></div>
+
+<script>
+	var lastMousePosition = { x: 0, y: 0 };
+
+    // Scene setup
+	// Initialize scene
+	var scene = new THREE.Scene();
+	scene.background = new THREE.Color('#061E47'); // Set the scene background color
+
+
+    // Camera setup
+    var camera = new THREE.PerspectiveCamera(
+        75, // Field of view
+        window.innerWidth / window.innerHeight, // Aspect ratio
+        0.1, // Near clipping plane
+        1000 // Far clipping plane
+    );
+
+    // Renderer setup
+    var renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+	
+	//For Mouse Interaction to SHow Node Names
+	var raycaster = new THREE.Raycaster();
+	var mouse = new THREE.Vector2();
+
+	function onMouseMove(event) {
+    // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Update the global mouse position
+    lastMousePosition.x = event.clientX;
+    lastMousePosition.y = event.clientY;
+    }
+
+	window.addEventListener('mousemove', onMouseMove, false);
+	//For Mouse Interaction to SHow Node Names
+
+    // OrbitControls setup for camera interaction
+    var controls = new THREE.OrbitControls(camera, renderer.domElement);
+		// ... after initializing OrbitControls
+		controls.enableDamping = true;
+		controls.dampingFactor = 0.25;
+		controls.screenSpacePanning = true; // This allows panning without affecting the vertical angle
+
+		// Remove constraints on angles
+		controls.minPolarAngle = 0; // radians (0 = top of the sphere)
+		controls.maxPolarAngle = Math.PI; // radians (Math.PI = bottom of the sphere)
+		controls.minAzimuthAngle = -Infinity; // radians
+		controls.maxAzimuthAngle = Infinity; // radians
+
+
+    // Move the camera from the center
+    camera.position.z = 5;
+
+    // Lighting setup
+    var ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
+    scene.add(ambientLight);
+
+    // Add a directional light for better visibility
+    var directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directionalLight.position.set(0, 1, 0);
+    scene.add(directionalLight);
+
+    // Animation loop
+		function animate() {
+			requestAnimationFrame(animate);
+
+			// Update the picking ray with the camera and mouse position
+			raycaster.setFromCamera(mouse, camera);
+
+			// Calculate objects intersecting the picking ray
+			var intersects = raycaster.intersectObjects(scene.children, true);
+
+			// Hide the nodeInfo by default for each frame
+			document.getElementById('nodeInfo').style.display = 'none';
+
+			for (var i = 0; i < intersects.length; i++) {
+				// Since intersects are sorted by distance, break after the first to only show the closest
+				if(intersects[i].object.userData.id) { // Ensure object has an ID
+					// Show the overlay with node ID
+					var nodeInfo = document.getElementById('nodeInfo');
+					nodeInfo.style.display = 'block';
+					nodeInfo.innerHTML = intersects[i].object.userData.id;
+					nodeInfo.style.left = lastMousePosition.x + 'px';
+					nodeInfo.style.top = lastMousePosition.y + 'px';
+					break; // Exit after showing the first (closest) intersecting node
+				}
+			}
+
+			controls.update();
+			renderer.render(scene, camera);
+		}
+
+
+
+    animate();
+    
+    // Handling window resize
+    window.addEventListener('resize', onWindowResize, false);
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+	
+	//Event Handler for DropDown Menu
+	document.getElementById('dataset-selector').addEventListener('change', function() {
+	const selectedDataset = this.value;
+  
+	// Clear existing scene if necessary
+	while(scene.children.length > 0){ 
+    scene.remove(scene.children[0]); 
+	}
+	// Right after clearing the scene
+	var ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+	scene.add(ambientLight);
+
+	var directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
+	directionalLight.position.set(0, 1, 0);
+	scene.add(directionalLight);
+	
+	// Fetch your JSON data
+	fetch(selectedDataset)
+	  .then(response => response.json())
+	  .then(data => {
+		// Create the material for the nodes
+		  // Determine the color based on ChID
+		// Inside your data.forEach loop
+		data.forEach(node => {
+		  // Scale the node positions
+		  var x = node.x / 100;
+		  var y = node.y / 100;
+		  var z = node.z / 100;
+
+		  // Determine the color based on ChID
+		  var color;
+		  switch (node.ChID) {
+			case 1:
+			  color = 0xff0000; // Example: Red for ChID 0
+			  break;
+			case 2:
+			  color = 0x00ff00; // Example: Green for ChID 1
+			  break;
+			case 3:
+			  color = 0x0000ff; // Example: Green for ChID 1
+			  break;
+			case 4:
+			  color = 0x00AAAA; // Example: Green for ChID 1
+			  break;
+			// Add more cases as needed for different ChID values
+			default:
+			  color = 0x00AAAA; // Default color if ChID is not recognized
+		  }
+
+		  // Create the material for this node with the determined color
+		  var nodeMaterial = new THREE.MeshStandardMaterial({
+			color: color, // Use the color determined by ChID
+			emissive: color, // Match the emissive color to the base color
+			emissiveIntensity: 0.2
+		  });
+
+		  // Create a sphere geometry for each node
+		  var geometry = new THREE.SphereGeometry(0.05, 32, 32); // Adjust size as needed
+
+		  // Create a sphere mesh with the geometry and the material
+		  var sphere = new THREE.Mesh(geometry, nodeMaterial);
+		  sphere.position.set(x, y, z);
+		  sphere.userData = { id: node.id }; // Assuming each node has an 'id' property
+		  
+		  // Add the sphere to the scene
+		  scene.add(sphere);
+		});
+
+		// After the loop that adds spheres to the scene
+		camera.position.set(0, 0, 5);
+		controls.update();  // Assuming you're using OrbitControls or similar
+		renderer.render(scene, camera);  // Make sure the scene is re-rendered
+		
+
+	  })
+	  .catch(error => console.error('Error loading JSON:', error));
+
+});
+
+
+document.getElementById('edge-dataset-selector').addEventListener('change', function() {
+  const selectedEdgeDataset = this.value;
+
+  // Clear previous checkboxes
+  const checkboxesContainer = document.getElementById('source-node-checkboxes');
+  checkboxesContainer.innerHTML = '';
+
+  // Fetch the selected edge dataset
+  fetch(selectedEdgeDataset)
+    .then(response => response.json())
+    .then(edges => {
+      // Create a set of unique sources
+      const uniqueSources = new Set(edges.map(edge => edge.Source));
+
+      // Create and append checkboxes for each unique source
+      uniqueSources.forEach(source => {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = source;
+        checkbox.value = source;
+        checkbox.classList.add('source-checkbox'); // Add a class for easy selection
+
+        const label = document.createElement('label');
+        label.htmlFor = source;
+        label.appendChild(document.createTextNode(source));
+
+        checkboxesContainer.appendChild(checkbox);
+        checkboxesContainer.appendChild(label);
+
+        // Event listener for the checkbox
+        checkbox.addEventListener('change', function(e) {
+          if (this.checked) {
+            drawEdgesForSource(source, edges);
+          } else {
+            removeEdgesForSource(source);
+          }
+        });
+      });
+
+      // Function to draw edges for a given source
+      function drawEdgesForSource(source, edges) {
+        const sourceEdges = edges.filter(edge => edge.Source === source);
+        sourceEdges.forEach(edge => {
+          const sourceNode = scene.children.find(obj => obj.userData.id === edge.Source);
+          const targetNode = scene.children.find(obj => obj.userData.id === edge.Target);
+          // ... rest of your edge drawing code here
+		          if (sourceNode && targetNode) {
+          // Create a geometry that represents the edge
+          const edgeGeometry = new THREE.BufferGeometry().setFromPoints([
+            sourceNode.position,
+            targetNode.position
+          ]);
+
+          // Create a line material (customize as needed)
+          const lineMaterial = new THREE.LineBasicMaterial({color: 0xffffff});
+
+          // Create the line and add it to the scene
+          const line = new THREE.Line(edgeGeometry, lineMaterial);
+          scene.add(line);
+        }
+        });
+        renderer.render(scene, camera);
+      }
+
+      // Function to remove edges for a given source
+      function removeEdgesForSource(source) {
+        // Assuming each line has userData with source and target information
+        const linesToRemove = scene.children.filter(obj => 
+          obj.userData && 
+          obj.userData.source === source &&
+          obj instanceof THREE.Line
+        );
+        linesToRemove.forEach(line => {
+          scene.remove(line);
+        });
+        renderer.render(scene, camera);
+      }
+    })
+    .catch(error => console.error('Error loading edge JSON:', error));
+});
+
+</script>
+</body>
+</html>
