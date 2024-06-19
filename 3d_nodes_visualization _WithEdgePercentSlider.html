@@ -8,36 +8,12 @@
     </style>
 </head>
 <body>
-<select id="dataset-selector">
-  <option value="node_data_AG 401.json">Agrobacterium tumefaciens 401</option>
-  <option value="node_data_AG 443 ATWX283.json">Agrobacterium tumefaciens 443 ATWX283</option>
-  <option value="node_data_AG 443.json">Agrobacterium tumefaciens 443</option>
-  <option value="node_data_AG 444.json">Agrobacterium tumefaciens 444</option>
-  <option value="node_data_AG 445.json">Agrobacterium tumefaciens 445</option>
-  <option value="node_data_AG 446.json">Agrobacterium tumefaciens 446</option>
-  <option value="node_data_BS_WT.json">Bacillus subtilis Wild Type</option>
-  <option value="node_data_BS_301.json">Bacillus subtilis 301</option>
-  <option value="node_data_BS_302.json">Bacillus subtilis 302</option>
-  <option value="node_data_BS_310.json">Bacillus subtilis 310</option>
-  <option value="node_data_BS_311.json">Bacillus subtilis 311</option>
-  <option value="node_data_BS_312.json">Bacillus subtilis 312</option>
-  <option value="node_data_BS_313.json">Bacillus subtilis 313</option>
-  <option value="node_data_BS_314.json">Bacillus subtilis 314</option>
-  <option value="node_data_BS_315.json">Bacillus subtilis 315</option>
-  <option value="node_data_BS_314.json">Bacillus subtilis 314</option>
-  <option value="node_data_BS_315.json">Bacillus subtilis 315</option>
-  <option value="node_data_BS SMCTS_42C40M.json">Bacillus subtilis SMCTS_42C40M</option>
-  <option value="node_data_BS SMCTS_42C120M.json">Bacillus subtilis SMCTS_42C120M</option>
-  <option value="node_data_Yeast WT.json">Yeast Wild Type</option>
-  <option value="node_data_Yeast Rad21.json">Yeast Rad21</option>
-  <option value="node_data_Yeast SPK567.json">Yeast SPK567</option>
-  <option value="node_data_Yeast SPTA333.json">Yeast SPTA333</option>
-  <option value="node_data_Brassica_5_10_itr.json">Brassica Napus</option>
-  <!-- Add more datasets as options here -->
-</select>
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <div id="nodeInfo" style="position: absolute; color: white; display: none; background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px;"></div>
+<!-- Place this in your HTML where you want the slider to appear -->
+<input type="range" id="percentileSlider" name="percentileSlider" min="1" max="5" value="5">
+<label for="percentileSlider">Percentile: 5%</label>
 
 <script>
 	var lastMousePosition = { x: 0, y: 0 };
@@ -135,8 +111,18 @@
 		}
 
 
-
     animate();
+	
+	
+	function weightToOpacity(weight, minWeight = 1, maxWeight = 100) {
+    // Exclude special case weights, like 10000
+    if (weight >= 10000) return 0.1; // Minimum visibility for special cases
+
+    const range = maxWeight - minWeight;
+    const normalizedWeight = (weight - minWeight) / range;
+    return normalizedWeight * 0.9 + 0.1; // Ensures opacity ranges from 0.1 to 1
+	}
+
     
     // Handling window resize
     window.addEventListener('resize', onWindowResize, false);
@@ -145,84 +131,107 @@
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     }
-	
-	//Event Handler for DropDown Menu
-	document.getElementById('dataset-selector').addEventListener('change', function() {
-	const selectedDataset = this.value;
-  
-	// Clear existing scene if necessary
-	while(scene.children.length > 0){ 
-    scene.remove(scene.children[0]); 
-	}
-	// Right after clearing the scene
-	var ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-	scene.add(ambientLight);
-
-	var directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
-	directionalLight.position.set(0, 1, 0);
-	scene.add(directionalLight);
 	// Fetch your JSON data
-	fetch(selectedDataset)
+	fetch('node_data_BS_WT.json')
 	  .then(response => response.json())
 	  .then(data => {
 		// Create the material for the nodes
-		  // Determine the color based on ChID
-		// Inside your data.forEach loop
+		var nodeMaterial = new THREE.MeshStandardMaterial({
+		  color: 0xff0000, // Base color for the nodes
+		  emissive: 0xff0000, // Emissive color to create a glow effect
+		  emissiveIntensity: 0.2 // Lowered intensity to distinguish the nodes
+		});
+
+		// Process the data
 		data.forEach(node => {
 		  // Scale the node positions
 		  var x = node.x / 100;
 		  var y = node.y / 100;
 		  var z = node.z / 100;
 
-		  // Determine the color based on ChID
-		  var color;
-		  switch (node.ChID) {
-			case 1:
-			  color = 0xff0000; // Example: Red for ChID 0
-			  break;
-			case 2:
-			  color = 0x00ff00; // Example: Green for ChID 1
-			  break;
-			case 3:
-			  color = 0x0000ff; // Example: Green for ChID 1
-			  break;
-			case 4:
-			  color = 0x00AAAA; // Example: Green for ChID 1
-			  break;
-			// Add more cases as needed for different ChID values
-			default:
-			  color = 0x00AAAA; // Default color if ChID is not recognized
-		  }
-
-		  // Create the material for this node with the determined color
-		  var nodeMaterial = new THREE.MeshStandardMaterial({
-			color: color, // Use the color determined by ChID
-			emissive: color, // Match the emissive color to the base color
-			emissiveIntensity: 0.2
-		  });
-
 		  // Create a sphere geometry for each node
 		  var geometry = new THREE.SphereGeometry(0.05, 32, 32); // Adjust size as needed
 
 		  // Create a sphere mesh with the geometry and the material
 		  var sphere = new THREE.Mesh(geometry, nodeMaterial);
+			sphere.position.set(x, y, z);
+			sphere.name = node.id; // Assuming each node has an 'id' property
+			scene.add(sphere);
+
+		  // Set the position of the sphere
 		  sphere.position.set(x, y, z);
-		  sphere.userData = { id: node.id }; // Assuming each node has an 'id' property
-		  
+
 		  // Add the sphere to the scene
 		  scene.add(sphere);
 		});
 
-		// After the loop that adds spheres to the scene
-		camera.position.set(0, 0, 5);
-		controls.update();  // Assuming you're using OrbitControls or similar
-		renderer.render(scene, camera);  // Make sure the scene is re-rendered
-		
+		// Adjust camera position and controls if needed
+		camera.position.set(0, 0, 5); // Set a reasonable starting position for the camera
+		controls.update();
 
 	  })
 	  .catch(error => console.error('Error loading JSON:', error));
+	  
+	  // This should come after loading and creating node spheres
 
+// Fetch your JSON data for edges
+// Assuming you have a 'scene' object already available for THREE.js
+
+// Function to clear existing lines
+function clearLines() {
+  const toRemove = [];
+  scene.children.forEach(child => {
+    if (child.type === "Line") toRemove.push(child);
+  });
+  toRemove.forEach(line => scene.remove(line));
+}
+
+// Function to load edges
+function loadEdges(percent) {
+  const fileName = `Bas_WT_top_${percent}_percent_edges.json`;
+  fetch(fileName)
+    .then(response => response.json())
+    .then(edges => {
+      clearLines(); // Clear existing lines before drawing new ones
+      edges.forEach(edge => {
+        const sourceNode = scene.getObjectByName(edge.Source);
+        const targetNode = scene.getObjectByName(edge.Target);
+
+        if (sourceNode && targetNode) {
+          const points = [sourceNode.position.clone(), targetNode.position.clone()];
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const opacity = weightToOpacity(edge.Weight); // Use your mapping function
+          const material = new THREE.LineBasicMaterial({
+            color: 0xffffff, // Adjust as needed
+            transparent: true,
+            opacity: opacity
+          });
+
+          const line = new THREE.Line(geometry, material);
+          line.userData = {
+            weight: edge.Weight,
+            source: edge.Source,
+            target: edge.Target
+          };
+          scene.add(line);
+        }
+      });
+    })
+    .catch(error => console.error(`Error loading edges JSON from ${fileName}:`, error));
+}
+
+// Event listener for the slider
+document.getElementById('percentileSlider').addEventListener('input', function() {
+  const percent = this.value;
+  document.querySelector('label[for="percentileSlider"]').textContent = `Percentile: ${percent}%`;
+  loadEdges(percent);
 });
+
+// Initial load for the default value
+loadEdges(5); // You can adjust the initial percentile value as needed
+
+
+
 
 
 </script>
